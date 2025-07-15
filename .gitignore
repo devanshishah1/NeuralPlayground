@@ -65,3 +65,6 @@ dist/
 
 # Sphinx documentation
 docs/build/
+
+
+results_sim/
