@@ -8,69 +8,62 @@ import time
 from neuralplayground.agents.whittington_2020 import Whittington2020
 import neuralplayground.agents.whittington_2020_extras.whittington_2020_parameters as parameters
 
-class backnforth(Whittington2020):
-    
-    def __init__(self, **agent_params):
-        # Safely remove our custom parameters before calling the parent
-        self.point_a = agent_params.pop("point_a", (-4, -3))
-        self.point_b = agent_params.pop("point_b", (4, 3))
-        
-        # Now call the parent __init__ with only the parameters it understands
-        super().__init__(**agent_params)
-        
-        # Set up a list of targets, one for each agent in the batch
-        self.current_targets = [self.point_b] * self.batch_size
-
-    import numpy as np
-from neuralplayground.agents.whittington_2020 import Whittington2020
 
 class backnforth(Whittington2020):
     
     def __init__(self, **agent_params):
         """
-        This is the constructor for the class.
+        Custom agent that navigates back and forth between two points.
+        We define the target points and call the parent agent's constructor.
         """
-        self.point_a = agent_params.pop("point_a", (-4, -3))
-        self.point_b = agent_params.pop("point_b", (4, 3))
+        # Pop custom parameters before the parent class sees them
+        self.point_a = np.array(agent_params.pop("point_a", (-4, -3)))
+        self.point_b = np.array(agent_params.pop("point_b", (4, 3)))
         
         super().__init__(**agent_params)
         
-        self.current_targets = [self.point_b] * self.batch_size
+        # A list of targets, one for each agent in the batch. All start by heading to point_b.
+        self.current_targets = [self.point_b for _ in range(self.batch_size)]
 
     def batch_act(self, observations):
         """
-        Final corrected batch_act method with the action translator.
+        Generates a batch of actions to navigate between point_a and point_b,
+        accounting for the environment's specific action format.
         """
         new_actions = []
         for i in range(self.batch_size):
-            # Part 1: Standard logic to decide on the desired move
-            current_pos = observations[i][2]
-            target = self.current_targets[i]
+            current_pos = np.array(observations[i][2])
+            target_pos = self.current_targets[i]
 
-            if np.linalg.norm(np.array(current_pos) - np.array(target)) < 0.5:
-                new_target = self.point_a if np.array_equal(target, self.point_b) else self.point_b
-                self.current_targets[i] = new_target
-                target = new_target
-
-            delta_x = target[0] - current_pos[0]
-            delta_y = target[1] - current_pos[1]
+            # 1. Check if the agent is close enough to the target to switch goals.
+            # Using a slightly larger radius (e.g., 1.0) is more robust in a discrete grid.
+            if np.linalg.norm(current_pos - target_pos) < 1.0:
+                if np.array_equal(target_pos, self.point_b):
+                    self.current_targets[i] = self.point_a
+                else:
+                    self.current_targets[i] = self.point_b
             
-            # Decide on our desired move in the standard [dy, dx] format
-            desired_move = [0, 0]
-            if abs(delta_x) > abs(delta_y):
-                desired_move = [0, int(np.sign(delta_x))]  # Move horizontally
+            # 2. Determine the action towards the CURRENT target.
+            # (The target will be updated on the next call to batch_act)
+            delta = target_pos - current_pos
+            
+            # 3. Choose the best discrete action (up, down, left, or right).
+            if abs(delta[0]) > abs(delta[1]):
+                action = [np.sign(delta[0]), 0]  # Move horizontally
+            elif abs(delta[1]) > 0:
+                action = [0, np.sign(delta[1])]  # Move vertically
             else:
-                desired_move = [int(np.sign(delta_y)), 0]  # Move vertically
+                # This case should rarely happen if the arrival radius is > 0
+                action = [0, 0] # Stay still if exactly at target
             
-            # Part 2: The "Translator"
-            # We transform our desired move into the strange format the environment expects.
-            # Based on our test, the rule is: expected_action = [desired_dx, -desired_dy]
-            dy_desired, dx_desired = desired_move[0], desired_move[1]
-            action_to_send = [dx_desired, -dy_desired]
+             # Part 2: "Translate" the desired move into the format the environment understands
+            action_to_send = list(action) # Make a copy
+            if action_to_send[0] == 0:
+                action_to_send[1] = -action_to_send[1] # Counteract the environment's flip
 
             new_actions.append(action_to_send)
 
-        # Part 3: Correctly manage state and history
+        # 4. Manage history for the TEM model (this is from the base class and is crucial)
         self.walk_actions.append(self.prev_actions.copy())
         self.obs_history.append(self.prev_observations.copy())
         self.prev_actions = new_actions
@@ -78,7 +71,6 @@ class backnforth(Whittington2020):
         self.n_walk += 1
 
         return new_actions
-    
 
 
 
