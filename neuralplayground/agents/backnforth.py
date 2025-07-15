@@ -79,17 +79,24 @@ class backnforth(Whittington2020):
 
         return new_actions
     
-    def update(self):
-        """
-        This is the corrected version of the original update method. 
-        It can handle any walk length and includes logging and saving.
-        """
-        self.iter = int((len(self.obs_history) / 20) - 1)
-        history = self.obs_history[-self.pars["n_rollout"] :]
+
+
+
+
+
+
+    
+    """
+    def git
+        self.iter = int((len(self.obs_history) / self.pars["n_rollout"])) - 1
+        history = self.obs_history[-self.pars["n_rollout"]:]
         locations = [[{"id": env_step[0], "shiny": None} for env_step in step] for step in history]
         observations = [[env_step[1] for env_step in step] for step in history]
-        actions = self.walk_actions[-self.pars["n_rollout"] :]
+        actions = self.walk_actions[-self.pars["n_rollout"]:]
+        
+        # Reset n_walk to start a new rollout in the training loop
         self.n_walk = 0
+        
         action_values = self.step_to_actions(actions)
         self.walk_action_values.append(action_values)
 
@@ -107,21 +114,11 @@ class backnforth(Whittington2020):
         self.tem.hyper["p2g_scale_offset"] = self.p2g_scale_offset
         for param_group in self.adam.param_groups:
             param_group["lr"] = self.lr
-
-        # This is the fixed part: using parameters instead of hardcoded numbers
+        
         model_input = [
             [
                 locations[i],
-                torch.from_numpy(
-                    np.reshape(
-                        observations,
-                        (
-                            self.pars["n_rollout"],
-                            self.pars["batch_size"],
-                            self.pars["n_x"],
-                        ),
-                    )[i]
-                ).type(torch.float32),
+                torch.from_numpy(np.reshape(observations, (self.pars["n_rollout"], self.pars["batch_size"], self.pars["n_x"]))[i]).type(torch.float32),
                 np.reshape(action_values, (self.pars["n_rollout"], self.pars["batch_size"]))[i].tolist(),
             ]
             for i in range(self.pars["n_rollout"])
@@ -130,38 +127,28 @@ class backnforth(Whittington2020):
         self.final_model_input = model_input
         forward = self.tem(model_input, self.prev_iter)
         loss = torch.tensor(0.0)
-        plot_loss = 0
 
-        for ind, step in enumerate(forward):
-            step_loss = []
+        for _, step in enumerate(forward):
+            step_loss_list = []
             for env_i, env_visited in enumerate(self.visited):
                 if env_visited[step.g[env_i]["id"]]:
-                    step_loss.append(loss_weights * torch.stack([i[env_i] for i in step.L]))
+                    step_loss_list.append(loss_weights * torch.stack([i[env_i] for i in step.L]))
                 else:
                     env_visited[step.g[env_i]["id"]] = True
-            step_loss = torch.tensor(0) if not step_loss else torch.mean(torch.stack(step_loss, dim=0), dim=0)
-            plot_loss = plot_loss + step_loss.detach().numpy()
-            loss = loss + torch.sum(step_loss)
+            
+            if step_loss_list:
+                step_loss = torch.mean(torch.stack(step_loss_list, dim=0), dim=0)
+                loss = loss + torch.sum(step_loss)
 
         self.adam.zero_grad()
-        loss.backward(retain_graph=True)
-        self.adam.step()
+        if loss.requires_grad:
+            loss.backward(retain_graph=True)
+            self.adam.step()
         self.prev_iter = [forward[-1].detach()]
 
-        
-        
-        acc_p, acc_g, acc_gt = np.mean([[np.mean(a) for a in step.correct()] for step in forward], axis=0)
-        acc_p, acc_g, acc_gt = [a * 100 for a in (acc_p, acc_g, acc_gt)]
-        if self.iter % 10 == 0:
-            self.logger.info(f"Loss: {loss.detach().numpy():.2f}. <p_g> {plot_loss[0]:.2f} ...")
-        if self.iter % self.pars["save_interval"] == 0:
-            torch.save(self.tem.state_dict(), self.model_path + "/tem_" + str(self.iter) + ".pt")
-        if self.iter == self.pars["train_it"] - 1:
-            torch.save(self.tem.state_dict(), self.model_path + "/tem_" + str(self.iter) + ".pt")
 
 
 
-"""
 #import TEM agent class
 from neuralplayground.agents.whittington_2020 import Whittington2020
 
