@@ -296,12 +296,12 @@ class SingleSim(object):
         run_log_path = os.path.join(save_path, "run.log")
         error_log_path = os.path.join(save_path, "error.log")
         state_log_path = os.path.join(save_path, "state.log")
-
+        
         original_stdout = sys.stdout
         original_stderr = sys.stderr
 
-        sys.stdout = open(run_log_path, "w")
-        sys.stderr = open(error_log_path, "w")
+        #sys.stdout = open(run_log_path, "w")
+        #sys.stderr = open(error_log_path, "w") 
 
         # Initializing the state log
         self._update_log_state("running", state_log_path)
@@ -326,8 +326,8 @@ class SingleSim(object):
         self._update_log_state("finished", state_log_path)
 
         # Closing logs
-        sys.stdout.close()
-        sys.stderr.close()
+        ##sys.stdout.close()
+        #sys.stderr.close()
         sys.stdout = original_stdout
         sys.stderr = original_stderr
 

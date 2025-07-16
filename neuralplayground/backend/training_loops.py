@@ -1,5 +1,5 @@
 
-
+import time
 from neuralplayground.agents import AgentCore
 from neuralplayground.arenas import Environment
 
@@ -79,6 +79,51 @@ def episode_based_training_loop(agent: AgentCore, env: Environment, t_episode: i
     return agent, env, dict_training
 
 
+#tem_training_loop with a time bar
+# Make sure 'import time' is at the top of your training_loops.py file
+
+def tem_training_loop(agent: AgentCore, env: Environment, n_episode: int, params: dict):
+    """Training loop for agents and environments that use a TEM-based update."""
+    
+    training_dict = [agent.mod_kwargs, env.env_kwargs, agent.tem.hyper]
+    obs, state = env.reset(random_state=True, custom_state=None)
+
+    start_time = time.time()
+    print(f"Starting training for {n_episode} episodes...")
+
+    # The main loop over episodes
+    for i in range(n_episode):
+        # This is the original logic for one episode
+        while agent.n_walk < params["n_rollout"]:
+            actions = agent.batch_act(obs)
+            obs, state, reward = env.step(actions, normalize_step=True)
+        agent.update()
+
+        # --- The progress bar logic now goes INSIDE the loop ---
+        if (i + 1) % 5 == 0 or (i + 1) == n_episode:
+            current_time = time.time()
+            elapsed_time = current_time - start_time
+            episodes_done = i + 1
+            progress = episodes_done / n_episode
+            
+            # Estimate time remaining
+            eta = (elapsed_time / progress) - elapsed_time if progress > 0 else 0
+                
+            # Format time into H:M:S for readability
+            elapsed_str = time.strftime('%H:%M:%S', time.gmtime(elapsed_time))
+            eta_str = time.strftime('%H:%M:%S', time.gmtime(eta))
+            
+            # Print the progress bar, overwriting the previous line
+            print(f"  Episode {episodes_done}/{n_episode} [{progress:.1%}] | Elapsed: {elapsed_str} | ETA: {eta_str}  ", end='\r')
+    
+    # Add a single newline character after the loop is completely finished
+    print()
+    
+    # The function returns only once, at the very end.
+    return agent, env, training_dict
+
+
+'''
 def tem_training_loop(agent: AgentCore, env: Environment, n_episode: int, params: dict):
     """Training loop for agents and environments that use a TEM-based update.
 
@@ -108,6 +153,8 @@ def tem_training_loop(agent: AgentCore, env: Environment, n_episode: int, params
             obs, state, reward = env.step(actions, normalize_step=True)
         agent.update()
     return agent, env, training_dict
+
+    '''
 
 
 def process_training_hist(training_hist):
