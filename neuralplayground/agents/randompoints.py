@@ -1,15 +1,12 @@
-import os
-import pickle
+
 import numpy as np
-import torch
-import numpy as np
-import time
+import random
 
 from neuralplayground.agents.whittington_2020 import Whittington2020
 import neuralplayground.agents.whittington_2020_extras.whittington_2020_parameters as parameters
 
 
-class backnforth(Whittington2020):
+class randompoints(Whittington2020):
     
     def __init__(self, **agent_params):
         """
@@ -17,13 +14,20 @@ class backnforth(Whittington2020):
         We define the target points and call the parent agent's constructor.
         """
         # Pop custom parameters before the parent class sees them
-        self.point_a = np.array(agent_params.pop("point_a", (-4, -3)))
-        self.point_b = np.array(agent_params.pop("point_b", (4, 3)))
+        #self.point_a = np.array(agent_params.pop("point_a", (-4, -3)))
+        #self.point_b = np.array(agent_params.pop("point_b", (4, 3)))
+        #self.point_c = np.array(agent_params.pop("point_c", (-4, 3)))
+
+        self.points = [np.array(p) for p in agent_params.pop("points",[])]
+        if len(self.points) < 2:
+            print("please provide atleast 2 points")
+    
+        #allows user to set points in simulation script when creating agent params dict
         
         super().__init__(**agent_params) # calls the __init__ method of the parent class (Whittington2020).
         
-        # A list of targets, one for each agent in the batch. All start by heading to point_b.
-        self.current_targets = [self.point_b for _ in range(self.batch_size)]
+        # random starting target set:
+        self.current_targets = [random.choice(self.points) for _ in range(self.batch_size)]
 
     def batch_act(self, observations):
         """
@@ -35,19 +39,27 @@ class backnforth(Whittington2020):
             current_pos = np.array(observations[i][2])
             target_pos = self.current_targets[i]
 
-            # 1. Check if the agent is close enough to the target to switch goals.
-            # Using a slightly larger radius (e.g., 1.0) is more robust in a discrete grid.
             if np.linalg.norm(current_pos - target_pos) < 1.0:
-                if np.array_equal(target_pos, self.point_b):
-                    self.current_targets[i] = self.point_a
-                else:
-                    self.current_targets[i] = self.point_b
-            
-            # 2. Determine the action towards the CURRENT target.
+                #i.e. if distance to target pos close enough to swap targets
+    
+                possible_next_targets = [x for x in self.points if not np.array_equal(x, target_pos)]
+                
+                # Randomly choose one target from our new list of possibilities.
+                new_target = random.choice(possible_next_targets)
+                
+                # Update this agent's target to the newly chosen point.
+                self.current_targets[i] = new_target
+                
+                # We also update target_pos here so the action for this step is towards the new target.
+                target_pos = new_target
+        
+
+        
+            # Determine the action towards the CURRENT target.
             # (The target will be updated on the next call to batch_act)
             delta = target_pos - current_pos
             
-            # 3. Choose the best discrete action (up, down, left, or right).
+            # Choose the best discrete action (up, down, left, or right).
             if abs(delta[0]) > abs(delta[1]):
                 action = [np.sign(delta[0]), 0]  # Move horizontally
             elif abs(delta[1]) > 0:
@@ -56,7 +68,9 @@ class backnforth(Whittington2020):
                 # This case should rarely happen if the arrival radius is > 0
                 action = [0, 0] # Stay still if exactly at target
             
-             # Part 2: "Translate" the desired move into the format the environment understands
+             # "Translate" the desired move into the format the environment understands
+             # i.e. (0,-1) means move up etc 
+
             action_to_send = list(action) # Make a copy
             if action_to_send[0] == 0:
                 action_to_send[1] = -action_to_send[1] # Counteract the environment's flip
