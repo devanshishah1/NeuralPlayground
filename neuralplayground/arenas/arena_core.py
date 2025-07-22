@@ -3,11 +3,16 @@ import pickle
 
 import numpy as np
 import pandas as pd
-from deepdiff import DeepDiff
-from gymnasium import Env, spaces
+from deepdiff import DeepDiff #comparing two different python objects
+from gymnasium import Env, spaces #Env is a class in gymnasium that we inherit from
+
+# importing neccessary modules and libraries
+# gymnasium is  a library important for "reinforcement learning" 
+# Env: https://gymnasium.farama.org/api/env/
 
 
 class Environment(Env):
+    #description of the class
     """Abstract parent environment class
 
     Attributes
@@ -66,7 +71,10 @@ class Environment(Env):
             Define within each subclass for specific environments
             time_step_size: float
                Size of the time step in seconds
+
         """
+        #**env_kwargs collects any keyword arguments that don't already have a specific parameter and packs them into a dictionary.
+
         self.environment_name = environment_name
         self.time_step_size = time_step_size
         self.env_kwargs = env_kwargs  # Parameters of the environment

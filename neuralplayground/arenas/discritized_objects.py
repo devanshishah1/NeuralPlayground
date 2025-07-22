@@ -1,11 +1,11 @@
 import random
 
-import cv2
+import cv2 #creates video???
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
-from neuralplayground.arenas.arena_core import Environment
+from neuralplayground.arenas.arena_core import Environment #base class 
 from neuralplayground.plotting.plot_utils import make_plot_trajectories
 from neuralplayground.utils import check_crossing_wall
 
@@ -101,7 +101,7 @@ class DiscreteObjectEnvironment(Environment):
         self.room_depth = np.diff(self.arena_y_limits)[0].item()
         self.agent_step_size = env_kwargs["agent_step_size"]
         self._create_default_walls()
-        self._create_custom_walls()
+        self._create_custom_walls() #helper methods (further down)
         self.wall_list = self.default_walls + self.custom_walls
 
         # Variables for discretised state space
